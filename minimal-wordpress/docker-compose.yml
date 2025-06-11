@@ -28,11 +28,30 @@ services:
         define('WP_AUTO_UPDATE_CORE', false);
         define('AUTOMATIC_UPDATER_DISABLED', true);
         define('WP_DEBUG', false);
-        define('WP_DEBUG_LOG', false);
+        define('WP_DEBUG_LOG', true);
         define('WP_DEBUG_DISPLAY', false);
         define('SCRIPT_DEBUG', false);
         define('WP_MEMORY_LIMIT', '${WORDPRESS_MEMORY_LIMIT:-256M}');
         define('WP_MAX_MEMORY_LIMIT', '${WORDPRESS_MAX_MEMORY_LIMIT:-512M}');
+
+        // WordPress Performance & Caching Optimizations
+        define('CONCATENATE_SCRIPTS', false);
+        define('COMPRESS_SCRIPTS', true);
+        define('COMPRESS_CSS', true);
+        define('ENFORCE_GZIP', true);
+
+        // WordPress Media Handling
+        define('ALLOW_UNFILTERED_UPLOADS', false);
+        define('IMAGE_EDIT_OVERWRITE', true);
+
+        // WordPress Cookie Configuration (avoid cache conflicts)
+        define('COOKIE_DOMAIN', '${COOKIE_DOMAIN:-.domain.com}');
+        define('COOKIEPATH', '/');
+        define('SITECOOKIEPATH', '/');
+
+        // WordPress File Permissions (per docs)
+        @ini_set('default_fileperms', 0755);
+        @ini_set('default_dirperms', 0755);
 
       # Security Keys
       WORDPRESS_AUTH_KEY: ${WORDPRESS_AUTH_KEY}
@@ -49,7 +68,9 @@ services:
     volumes:
       - wordpress_data:/var/www/html
       - ./wp-content:/var/www/html/wp-content
-      - ./uploads:/var/www/html/wp-content/uploads
+      # Note: uploads are included in wp-content mount above (standard WordPress structure)
+      - ./logs/wordpress:/var/www/html/wp-content/debug
+      - /tmp/sessions:/tmp/sessions:rw
     depends_on:
       mysql:
         condition: service_healthy
@@ -141,7 +162,7 @@ services:
       - ./logs/nginx:/var/log/nginx
       - wordpress_data:/var/www/html:ro
       - ./wp-content:/var/www/html/wp-content:ro
-      - ./uploads:/var/www/html/wp-content/uploads:ro
+      # Note: uploads are included in wp-content mount above (standard WordPress structure)
     depends_on:
       wordpress:
         condition: service_healthy
@@ -168,6 +189,18 @@ volumes:
 networks:
   frontend:
     driver: bridge
+    driver_opts:
+      com.docker.network.enable_ipv6: "false"
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
   backend:
     driver: bridge
     internal: true
+    driver_opts:
+      com.docker.network.enable_ipv6: "false"
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.21.0.0/16
