@@ -1,0 +1,123 @@
+# .dockerignore for minimal-wordpress
+# Professional build optimization
+
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+RESOURCES.md
+*.md
+
+# Development files
+Makefile
+.env*
+env.example
+
+# Logs and temporary files
+logs/
+backups/
+*.log
+*.tmp
+*.cache
+
+# Node modules (if any)
+node_modules/
+npm-debug.log*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker files
+docker-compose*.yml
+Dockerfile.*
+
+# Scripts not needed in container
+create-volumes.sh
+monitor.sh
+
+# WordPress uploads (handled by volumes)
+uploads/
+wp-content/uploads/
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+*.md
+
+# Docker development files
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Environment files
+.env
+.env.*
+env.example
+
+# Logs and temporary files
+logs/
+*.log
+tmp/
+temp/
+
+# Database dumps and backups
+backups/
+*.sql
+*.tar.gz
+*.zip
+
+# Node modules and package managers
+node_modules/
+npm-debug.log
+yarn.lock
+package-lock.json
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# WordPress specific
+wp-config.php
+.htaccess
+wp-content/uploads/
+wp-content/cache/
+wp-content/backup*/
+
+# Production security
+*.key
+*.pem
+*.crt

@@ -1,0 +1,7 @@
+.idea
+*.iml
+out
+gen
+.vscode
+.DS_Store
+.env

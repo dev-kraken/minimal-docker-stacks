@@ -1,0 +1,173 @@
+# Docker Compose configuration for minimal WordPress setup
+# Author: DevKraken (soman@devkraken.com)
+# Optimized for small landing pages and global nginx proxy
+
+services:
+  wordpress:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: ${WORDPRESS_IMAGE_NAME:-devkraken-wordpress}
+    container_name: ${WORDPRESS_CONTAINER_NAME:-wp_app}
+    restart: unless-stopped
+    environment:
+      # Database
+      WORDPRESS_DB_HOST: mysql:3306
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
+      WORDPRESS_DB_USER: ${MYSQL_USER}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
+      WORDPRESS_TABLE_PREFIX: ${WORDPRESS_TABLE_PREFIX:-wp_}
+
+      # WordPress Production Config
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_CACHE', true);
+        define('FORCE_SSL_ADMIN', ${FORCE_SSL_ADMIN:-false});
+        define('DISALLOW_FILE_EDIT', true);
+        define('DISALLOW_FILE_MODS', true);
+        define('WP_AUTO_UPDATE_CORE', false);
+        define('AUTOMATIC_UPDATER_DISABLED', true);
+        define('WP_DEBUG', false);
+        define('WP_DEBUG_LOG', false);
+        define('WP_DEBUG_DISPLAY', false);
+        define('SCRIPT_DEBUG', false);
+        define('WP_MEMORY_LIMIT', '${WORDPRESS_MEMORY_LIMIT:-256M}');
+        define('WP_MAX_MEMORY_LIMIT', '${WORDPRESS_MAX_MEMORY_LIMIT:-512M}');
+
+      # Security Keys
+      WORDPRESS_AUTH_KEY: ${WORDPRESS_AUTH_KEY}
+      WORDPRESS_SECURE_AUTH_KEY: ${WORDPRESS_SECURE_AUTH_KEY}
+      WORDPRESS_LOGGED_IN_KEY: ${WORDPRESS_LOGGED_IN_KEY}
+      WORDPRESS_NONCE_KEY: ${WORDPRESS_NONCE_KEY}
+      WORDPRESS_AUTH_SALT: ${WORDPRESS_AUTH_SALT}
+      WORDPRESS_SECURE_AUTH_SALT: ${WORDPRESS_SECURE_AUTH_SALT}
+      WORDPRESS_LOGGED_IN_SALT: ${WORDPRESS_LOGGED_IN_SALT}
+      WORDPRESS_NONCE_SALT: ${WORDPRESS_NONCE_SALT}
+
+    expose:
+      - "9000"
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./wp-content:/var/www/html/wp-content
+      - ./uploads:/var/www/html/wp-content/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:exec,nodev,nosuid,size=256M
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mysql:
+    build:
+      context: ./docker/mysql
+      dockerfile: Dockerfile
+      args:
+        MYSQL_VERSION: ${MYSQL_VERSION:-8.0}
+        PROJECT_NAME: ${PROJECT_NAME:-devkraken}
+    image: ${MYSQL_IMAGE_NAME:-devkraken-mysql}
+    container_name: ${MYSQL_CONTAINER_NAME:-wp_mysql}
+    restart: unless-stopped
+    # External MySQL port for development (comment out for production)
+    ports:
+      - "${MYSQL_EXTERNAL_PORT:-3306}:3306"
+    expose:
+      - "3306"
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_INITDB_SKIP_TZINFO: 1
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./logs/mysql:/var/log/mysql
+    networks:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    command: >
+      --authentication-policy=${MYSQL_AUTHENTICATION_POLICY:-mysql_native_password}
+      --innodb-use-native-aio=0
+      --innodb-buffer-pool-size=${MYSQL_INNODB_BUFFER_POOL_SIZE:-128M}
+      --innodb-redo-log-capacity=${MYSQL_REDO_LOG_CAPACITY:-67108864}
+      --innodb-flush-log-at-trx-commit=2
+      --innodb-flush-method=O_DIRECT
+      --max-connections=${MYSQL_MAX_CONNECTIONS:-30}
+      --slow-query-log=1
+      --slow-query-log-file=/var/log/mysql/slow.log
+      --long-query-time=${MYSQL_SLOW_QUERY_TIME:-2}
+      --skip-name-resolve
+      --host-cache-size=0
+      --pid-file=/var/lib/mysql/mysqld.pid
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${MYSQL_ROOT_PASSWORD}",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  nginx:
+    build:
+      context: ./docker/nginx
+      dockerfile: Dockerfile
+      args:
+        NGINX_VERSION: ${NGINX_VERSION:-1.24-alpine}
+        PROJECT_NAME: ${PROJECT_NAME:-devkraken}
+    image: ${NGINX_IMAGE_NAME:-devkraken-nginx}
+    container_name: ${NGINX_CONTAINER_NAME:-wp_nginx}
+    restart: unless-stopped
+    ports:
+      - "${NGINX_EXTERNAL_PORT:-80}:80"
+    volumes:
+      - ./logs/nginx:/var/log/nginx
+      - wordpress_data:/var/www/html:ro
+      - ./wp-content:/var/www/html/wp-content:ro
+      - ./uploads:/var/www/html/wp-content/uploads:ro
+    depends_on:
+      wordpress:
+        condition: service_healthy
+    networks:
+      - frontend
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  mysql_data:
+    external: true
+    name: ${MYSQL_VOLUME_NAME:-devkraken_mysql_data}
+  wordpress_data:
+    external: true
+    name: ${WORDPRESS_VOLUME_NAME:-devkraken_wordpress_data}
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: true
